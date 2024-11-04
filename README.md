@@ -21,7 +21,8 @@ Payloads should consist of three items matching in name. Do not zip them or put 
   "title": "Once In A Lifetime",
   "album": "Remain In Light",
   "artist": "Talking Heads",
-  "genre": "1"
+  "genre": "1",
+  "year": 1980
 }
 ```
 Each song package (all 3 files) should contain `title`, `album`, `artist`, and the integer of the song's `genre` according to the genres API above.
