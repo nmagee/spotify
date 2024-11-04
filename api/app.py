@@ -27,7 +27,7 @@ def new_record():
 
 @app.route('/songs', methods=['GET'], cors=True)
 def get_songs():
-    query = "SELECT songs.title, songs.album, songs.artist, songs.file, songs.image, genres.genre FROM songs INNER JOIN genres ON songs.genre = genres.genreid ORDER BY songs.title, songs.artist;"
+    query = "SELECT songs.title, songs.album, songs.artist, songs.year, songs.file, songs.image, genres.genre FROM songs INNER JOIN genres ON songs.genre = genres.genreid ORDER BY songs.title, songs.artist;"
     c=db.cursor()
     try:
         c.execute(query)
