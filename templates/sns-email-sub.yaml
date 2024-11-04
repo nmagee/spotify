@@ -1,0 +1,46 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: SNS Topic with Email Subscription
+
+Parameters:
+  UvaId:
+    Description: UVA Computing ID
+    Type: String
+    MinLength: 3
+    MaxLength: 8
+    ConstraintDescription: must be between 3 and 8 characters
+
+Resources:
+  Dp1EmailSubscription:
+    Type: 'AWS::SNS::Subscription'
+    Properties:
+      Endpoint: !Sub "${UvaId}@virginia.edu"
+      Protocol: "email-json"
+      TopicArn: !GetAtt Dp1Spotify.TopicArn
+
+  Dp1Spotify:
+    Type: 'AWS::SNS::Topic'
+    Properties:
+      TopicName: "Dp1Spotify"
+
+  SNSTopicPolicy:
+    Type: AWS::SNS::TopicPolicy
+    Properties:
+      Topics:
+        - !Ref Dp1Spotify
+      PolicyDocument:
+        Id: SNSTopicPolicy
+        Version: '2012-10-17'
+        Statement:
+          -
+            Sid: S3TriggerAccess
+            Effect: Allow
+            Principal:
+              AWS:
+                - '*'
+            Action:
+              - sns:Publish
+            Resource:
+              - !Ref Dp1Spotify
+            Condition:
+              ArnLike:
+                aws:SourceArn: !Sub "arn:aws:s3:::nem2p-dp1a"

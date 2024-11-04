@@ -1,0 +1,62 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: SNS Topic with Email Subscription
+
+Parameters:
+  UvaId:
+    Description: UVA Computing ID
+    Type: String
+    MinLength: 3
+    MaxLength: 8
+    ConstraintDescription: must be between 3 and 8 characters
+
+Resources:
+
+  StaticWebHostBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub "${UvaId}-dp1-spotify"
+      OwnershipControls:
+        Rules:
+          - ObjectOwnership: BucketOwnerEnforced
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: false
+        BlockPublicPolicy: false
+        IgnorePublicAcls: false
+        RestrictPublicBuckets: false
+      WebsiteConfiguration:
+        IndexDocument: index.html
+        ErrorDocument: error.html
+
+  StaticWebHostBucketPolicy:
+    Type: 'AWS::S3::BucketPolicy'
+    Properties:
+      Bucket: !Ref StaticWebHostBucket
+      PolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Sid: PublicReadForGetBucketObjects
+            Effect: Allow
+            Principal: '*'
+            Action: 's3:GetObject'
+            Resource: !Join 
+              - ''
+              - - 'arn:aws:s3:::'
+                - !Ref StaticWebHostBucket
+                - /*
+          - Sid: PutObjectAccessForInstructors
+            Action:
+              - s3:PutObject
+            Effect: Allow
+            Principal:
+              AWS:
+                - '474683445819'
+            Resource:
+              - !Sub "arn:aws:s3:::${StaticWebHostBucket}"
+              - !Sub "arn:aws:s3:::${StaticWebHostBucket}/*"
+
+Outputs:
+  outputWebsiteURL:
+    Value: !GetAtt 
+      - StaticWebHostBucket
+      - WebsiteURL
+    Description: DP1 Spotify website URL

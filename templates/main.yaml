@@ -1,0 +1,97 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: >-
+  AWS CloudFormation template for the Homegrown Spotify assignment DP1.
+Parameters:
+  UvaId:
+    Description: UVA Computing ID
+    Type: String
+    MinLength: 3
+    MaxLength: 8
+    ConstraintDescription: must be between 3 and 8 characters
+
+Resources:
+
+  StaticWebHostBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub "${UvaId}-dp1-spotify"
+      OwnershipControls:
+        Rules:
+          - ObjectOwnership: BucketOwnerEnforced
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: false
+        BlockPublicPolicy: false
+        IgnorePublicAcls: false
+        RestrictPublicBuckets: false
+      WebsiteConfiguration:
+        IndexDocument: index.html
+        ErrorDocument: error.html
+
+  StaticWebHostBucketPolicy:
+    Type: 'AWS::S3::BucketPolicy'
+    Properties:
+      Bucket: !Ref StaticWebHostBucket
+      PolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Sid: PublicReadForGetBucketObjects
+            Effect: Allow
+            Principal: '*'
+            Action: 's3:GetObject'
+            Resource: !Join 
+              - ''
+              - - 'arn:aws:s3:::'
+                - !Ref StaticWebHostBucket
+                - /*
+          - Sid: PutObjectAccessForInstructors
+            Action:
+              - s3:PutObject
+            Effect: Allow
+            Principal:
+              AWS:
+                - '474683445819'
+            Resource:
+              - !Sub "arn:aws:s3:::${StaticWebHostBucket}"
+              - !Sub "arn:aws:s3:::${StaticWebHostBucket}/*"
+
+  SNSTopic:
+    Type: AWS::SNS::Topic
+    Properties:
+      DisplayName: dp1-topic
+      TopicName: dp1-topic
+
+  SNSTopicPolicy:
+    Type: AWS::SNS::TopicPolicy
+    Properties:
+      Topics:
+        - !Ref SNSTopic
+      PolicyDocument:
+        Id: SNSTopicPolicy
+        Version: '2012-10-17'
+        Statement:
+          -
+            Sid: S3TriggerAccess
+            Effect: Allow
+            Principal:
+              AWS:
+                - '*'
+            Action:
+              - sns:Publish
+            Resource:
+              - !Ref SNSTopic
+            Condition:
+              ArnLike:
+                aws:SourceArn: !Sub "arn:aws:s3:::${StaticWebHostBucket}"
+
+Outputs:
+  S3Bucket:
+    Value: !Ref StaticWebHostBucket
+    Description: S3 Bucket for DP1 storage
+  SNSTopicArn:
+    Value: !Ref SNSTopic
+    Description: SNS Topic for S3 Object Triggers
+  WebsiteURL:
+    Value: !GetAtt 
+      - StaticWebHostBucket
+      - WebsiteURL
+    Description: DP1 Spotify website URL

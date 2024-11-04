@@ -1,0 +1,4 @@
+.chalice/*
+**/.chalice
+
+Pipfile.lock

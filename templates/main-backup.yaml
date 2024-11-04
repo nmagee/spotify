@@ -1,0 +1,164 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: >-
+  AWS CloudFormation template for the Homegrown Spotify assignment DP1.
+Parameters:
+  UvaId:
+    Description: UVA Computing ID
+    Type: String
+    MinLength: 3
+    MaxLength: 8
+    ConstraintDescription: must be between 3 and 8 characters
+
+  KeyName:
+    Description: Name of an existing EC2 KeyPair to enable SSH access to the instances
+    Type: 'AWS::EC2::KeyPair::KeyName'
+    ConstraintDescription: must be the name of an existing EC2 KeyPair.
+
+Resources:
+  S3Bucket:
+    Type: 'AWS::S3::Bucket'
+    Properties:
+      BucketName: !Sub "dp1-spotify-${UvaId}"
+      AccessControl: BucketOwnerFullControl
+      NotificationConfiguration:
+        TopicConfigurations:
+          -
+            Event: s3:ObjectCreated:Put
+            Topic: !Ref SNSTopic
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: false
+        BlockPublicPolicy: false
+        IgnorePublicAcls: false
+        RestrictPublicBuckets: false
+      WebsiteConfiguration:
+        IndexDocument: index.html
+        ErrorDocument: error.html
+    DeletionPolicy: Delete
+
+  S3BucketPolicy:
+    Type: 'AWS::S3::BucketPolicy'
+    Properties:
+      PolicyDocument:
+        Id: MyPolicy
+        Version: 2012-10-17
+        Statement:
+          - Sid: PublicReadForGetBucketObjects
+            Effect: Allow
+            Principal: '*'
+            Action: 's3:GetObject'
+            Resource: !Join 
+              - ''
+              - - 'arn:aws:s3:::'
+                - !Ref S3Bucket
+                - /*
+          -
+            Sid: PutObjectAccessForInstructors
+            Action:
+              - s3:PutObject
+            Effect: Allow
+            Principal:
+              AWS:
+                - '440848399208' # Replace with a valid source AWS Account Id
+            Resource:
+              - !Sub "arn:aws:s3:::${S3Bucket}"
+      Bucket: !Ref S3Bucket
+
+  SNSTopic:
+    Type: AWS::SNS::Topic
+    Properties:
+      DisplayName: dp1-spotify-topic
+      TopicName: dp1-spotify
+
+  SNSTopicPolicy:
+    Type: AWS::SNS::TopicPolicy
+    DependsOn:
+      - S3Bucket
+      - S3BucketPolicy
+      - SNSTopic
+    Properties:
+      Topics:
+        - !Ref SNSTopic
+      PolicyDocument:
+        Id: SNSTopicPolicy
+        Version: '2012-10-17'
+        Statement:
+          -
+            Sid: S3TriggerAccess
+            Effect: Allow
+            Principal:
+              AWS:
+                - '*'
+            Action:
+              - sns:Publish
+            Resource:
+              - !Ref SNSTopic
+            Condition:
+              ArnLike:
+                aws:SourceArn: !Sub "arn:aws:s3:::${S3Bucket}"
+
+  EC2Instance:
+    Type: 'AWS::EC2::Instance'
+    Properties:
+      InstanceType: t2.micro
+      SecurityGroups:
+        - !Ref InstanceSecurityGroup
+      KeyName: !Ref KeyName
+      ImageId: ami-0c7217cdde317cfec
+      Tags:
+        - Key: Name
+          Value: dp1-spotify
+      UserData:
+        Fn::Base64: 
+          !Sub |
+          #!/bin/bash -xe
+          apt update && apt install python3-pip -y
+          python3 -m pip install boto3 awscli
+
+  InstanceSecurityGroup:
+    Type: 'AWS::EC2::SecurityGroup'
+    Properties:
+      GroupDescription: Enable SSH access
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: '22'
+          ToPort: '22'
+          CidrIp: '128.143.0.0/16'
+        - IpProtocol: tcp
+          FromPort: '22'
+          ToPort: '22'
+          CidrIp: '199.111.0.0/16'
+        - IpProtocol: tcp
+          FromPort: '80'
+          ToPort: '80'
+          CidrIp: '0.0.0.0/0'
+          
+  IPAddress:
+    Type: 'AWS::EC2::EIP'
+
+  IPAssoc:
+    Type: 'AWS::EC2::EIPAssociation'
+    Properties:
+      InstanceId: !Ref EC2Instance
+      EIP: !Ref IPAddress
+
+Outputs:
+  InstanceId:
+    Description: InstanceId of the newly created EC2 instance
+    Value: !Ref EC2Instance
+  InstanceIPAddress:
+    Description: IP address of the newly created EC2 instance
+    Value: !Ref IPAddress
+  S3Bucket:
+    Value: !Ref S3Bucket
+    Description: S3 Bucket for object storage
+  SNSTopicArn:
+    Value: !Ref SNSTopic
+    Description: SNS Topic for S3 Object Triggers
+  S3BucketSecureURL:
+    Value: !Join 
+      - ''
+      - - 'https://'
+        - !GetAtt 
+          - S3Bucket
+          - DomainName
+    Description: Name of S3 bucket to hold website content
