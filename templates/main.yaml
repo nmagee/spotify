@@ -2,12 +2,18 @@ AWSTemplateFormatVersion: 2010-09-09
 Description: >-
   AWS CloudFormation template for the Homegrown Spotify assignment DP1.
 Parameters:
+
   UvaId:
     Description: UVA Computing ID
     Type: String
     MinLength: 3
     MaxLength: 8
     ConstraintDescription: must be between 3 and 8 characters
+
+  KeyName:
+    Description: Select an existing EC2 KeyPair to enable SSH access to your instance
+    Type: 'AWS::EC2::KeyPair::KeyName'
+    ConstraintDescription: must be the name of an existing EC2 KeyPair.
 
 Resources:
 
@@ -54,44 +60,68 @@ Resources:
               - !Sub "arn:aws:s3:::${StaticWebHostBucket}"
               - !Sub "arn:aws:s3:::${StaticWebHostBucket}/*"
 
-  SNSTopic:
-    Type: AWS::SNS::Topic
+  EC2Instance:
+    Type: 'AWS::EC2::Instance'
     Properties:
-      DisplayName: dp1-topic
-      TopicName: dp1-topic
+      InstanceType: t2.micro
+      SecurityGroups:
+        - !Ref InstanceSecurityGroup
+      KeyName: !Ref KeyName
+      ImageId: ami-0c7217cdde317cfec
+      Tags:
+        - Key: Name
+          Value: dp1-spotify
+      UserData:
+        Fn::Base64: 
+          !Sub |
+          #!/bin/bash -xe
+          apt update && apt install python3-pip -y
+          python3 -m pip install boto3 awscli
 
-  SNSTopicPolicy:
-    Type: AWS::SNS::TopicPolicy
+  InstanceSecurityGroup:
+    Type: 'AWS::EC2::SecurityGroup'
     Properties:
-      Topics:
-        - !Ref SNSTopic
-      PolicyDocument:
-        Id: SNSTopicPolicy
-        Version: '2012-10-17'
-        Statement:
-          -
-            Sid: S3TriggerAccess
-            Effect: Allow
-            Principal:
-              AWS:
-                - '*'
-            Action:
-              - sns:Publish
-            Resource:
-              - !Ref SNSTopic
-            Condition:
-              ArnLike:
-                aws:SourceArn: !Sub "arn:aws:s3:::${StaticWebHostBucket}"
+      GroupDescription: Enable SSH access
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: '22'
+          ToPort: '22'
+          CidrIp: '128.143.0.0/16'
+        - IpProtocol: tcp
+          FromPort: '22'
+          ToPort: '22'
+          CidrIp: '199.111.0.0/16'
+        - IpProtocol: tcp
+          FromPort: '80'
+          ToPort: '80'
+          CidrIp: '0.0.0.0/0'
+          
+  IPAddress:
+    Type: 'AWS::EC2::EIP'
+
+  IPAssoc:
+    Type: 'AWS::EC2::EIPAssociation'
+    Properties:
+      InstanceId: !Ref EC2Instance
+      EIP: !Ref IPAddress
 
 Outputs:
+  InstanceIPAddress:
+    Description: IP address of the newly created EC2 instance
+    Value: !Ref IPAddress
   S3Bucket:
     Value: !Ref StaticWebHostBucket
     Description: S3 Bucket for DP1 storage
-  SNSTopicArn:
-    Value: !Ref SNSTopic
-    Description: SNS Topic for S3 Object Triggers
   WebsiteURL:
     Value: !GetAtt 
       - StaticWebHostBucket
       - WebsiteURL
-    Description: DP1 Spotify website URL
+    Description: DP1 Spotify application URL
+  S3BucketSecureURL:
+    Value: !Join 
+      - ''
+      - - 'https://'
+        - !GetAtt 
+          - S3Bucket
+          - DomainName
+    Description: DP1 media content URL
