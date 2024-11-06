@@ -43,7 +43,7 @@ def get_songs():
         print("MySQL Error: ", str(e))
         return None
     cur.close()
-    # db.close()
+    db.close()
 
 @app.route('/genres', methods=['GET'], cors=True)
 def get_genres():
@@ -61,4 +61,4 @@ def get_genres():
         print("MySQL Error: ", str(e))
         return None
     cur.close()
-    # db.close()
+    db.close()
