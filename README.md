@@ -1,6 +1,6 @@
 # Data Project 1: DIY Spotify
 
-In this project you will build a homemade music player that resembles Spotify. This will demonstrate your ability to (1) organize and create data files according to a schema; (2) ingest those data files using modern cloud techniques; (3) store song metadata in a relational database; and (4) expose that data in an API endpoint.
+In this project you will build a homemade, web-based music player that resembles Spotify. This will demonstrate your ability to (1) organize and create data files according to a schema; (2) ingest those data using modern techniques; (3) store each song's metadata in a relational database; and (4) expose that data in an API endpoint.
 
 - Explore a sample [**Frontend**](http://nem2p-dp1-spotify.s3-website-us-east-1.amazonaws.com/) of this project.
   
@@ -9,46 +9,15 @@ In this project you will build a homemade music player that resembles Spotify. T
   - [**Genres**](https://bv1e9klemd.execute-api.us-east-1.amazonaws.com/api/genres)
 
 
-## 0. Song Files
+## STEP ZERO - Overview
 
-Songs must consist of three items matching in name, each with a unique suffix. Do not zip, bundle, or put them into a subdirectory:
-
-- `12345678.mp3` - The MP3 file of the song itself.
-- `12345678.jpg` - A JPG file for the song/artist. Do not use `.gif` or `.png` files.
-- `12345678.json` - A data blob containing metadata for the song. See below for an example.
-
-**Song Metadata**
-
-```
-{
-  "title": "Once In A Lifetime",
-  "album": "Remain In Light",
-  "artist": "Talking Heads",
-  "genre": 1,
-  "year": 1980
-}
-```
-Each song package (all 3 files) must contain five data points: `title`, `album`, `artist`, and the integers of the song's `genre` (according to the genres API above) and `year`.
-
-## STEP ONE - Gather Your Songs
-
-Your first task is to collect at least ten (10) songs and create their associated metadata files.
-
-1. **MP3 files** - can be created from YouTube videos using tools such as [this](https://ezmp3.cc/).
-2. **Metadata JSON files** - can be written by hand using the schema above.
-3. **Album Cover Art** (optional) - must be a JPG file. The ideal size is 200x200 pixels, with a 72ppi resolution.
-
-Remember that each bundle needs a unique, matching set of file names. To create a unique 8-character name for your song bundle, you might want to use this ID generator API!  **https://ids.pods.uvarc.io/id/8**
-
-Put your song bundles in a separate `songs` directory within your project but do not upload them to S3 yet.
-
-> NOTE: Copyright laws prohibit the redistribution or sale of creative material, but our purposes here are academic and temporary. You should not distribute your application URL.
-
-## 1. Overview of Project Resources
+### 1. Project Resources
 
 Much of the infrastructure for this project is created with an Amazon CloudFormation template. Details for each resource are below.
 
-### S3 Bucket
+![AWS Diagram](https://s3.amazonaws.com/nem2p-dp1-spotify/diagram.png)
+
+#### S3 Bucket
 
 The CF template creates an S3 bucket based on your UVA computing ID, plus `-dp1-spotify`. This bucket will be configured with a few special options:
 
@@ -56,25 +25,25 @@ The CF template creates an S3 bucket based on your UVA computing ID, plus `-dp1-
 - The bucket will be configured as a website.
 - The bucket will allow instructional staff to upload objects.
 
-For each song you will upload the 3-file bundle associated with it.
+For each song you will upload a 3-file bundle associated with it: The MP3 song file, a JSON metadata file, and a JPG album image.
 
-You will also upload an `index.html` file to serve as the user interface for your music player.
+You will also upload a customized `index.html` file to serve as the user interface for your music player.
 
-### Lambda Function
+#### Lambda Function
 
 > **AWS Lambda** is a "serverless" framework that enables users to publish code that is triggered by an event. It is an incredibly useful service since you do not need to worry about any other infrastructure to support it (servers, containers, etc.) and it can be triggered by a large number of events.
 
-You will create a Lambda function using a Python3 library named Chalice. Chalice will create a Lambda function associated with your bucket, and will run your code each time a new `.json` object is uploaded.
+You will manually create a Lambda function using a Python3 library named Chalice. Chalice will create a Lambda function associated with your bucket, and will run your code each time a new `.json` object is uploaded.
 
 Chalice configures the bucket-to-function connection, and can be easily deployed and re-deployed using simple commands.
 
-### Database Service
+#### Database Service
 
 All students will share a single RDS database service provided by the instructor. You do not need to create a database server yourself, but you will create a new database and all the necessary tables within it.
 
-You will be provided connection information and instructions below.
+You will be provided connection information and instructions in the Canvas assignment page.
 
-### EC2 Instance
+#### EC2 Instance
 
 The CF template will create an EC2 instance for you with the following features configured/installed:
 
@@ -82,20 +51,22 @@ The CF template will create an EC2 instance for you with the following features 
 - Fixed IP address (ElasticIP)
 - Port 80 visible to the Internet [`0.0.0.0/0`]
 
-### FastAPI
+#### FastAPI
 
-You will build and run the FastAPI container you have already been working with for your API. There are two main additions that you will write into your API:
+You will build and run the FastAPI container you have already been working with for your API. You will make two important additions to your API:
 
 1. MySQL connection libraries
 2. A new `/songs` endpoint using the **GET** method that lists your song metadata.
 
-## 2. Song Ingestion
+- - -
+
+### 2. Data Flow - Your Goal
 
 These are the steps that must occur when a new song is added to your music player:
 
 1. The song file bundle (3 files) is uploaded to your S3 bucket.
 2. The arrival of a new `.json` file triggers your Lambda function to execute.
-3. Your Lambda function pulls down the JSON metadata file and parses it. It then calculates the name of the MP3 and JPG files associated with the song metadata, as well as the full S3 URI to those files.
+3. Your Lambda function retrieves the JSON metadata file and parses it. It then calculates the name of the MP3 and JPG files associated with the song metadata, and generates the full S3 URI to each of those files.
 4. It performs a MySQL `INSERT` query to add the new song to your `songs` database. These are the fields it inserts:
    - `title` - The song title (string)
    - `artist` - The musical artist (string)
@@ -104,15 +75,53 @@ These are the steps that must occur when a new song is added to your music playe
    - `year` - The year of the song (integer)
    - `file` - The full S3 URI to the MP3 file
    - `image` - The full S3 URI to the JPG image
-5. Data inserted into the `songs` table of your database are immediately available in your API's `/songs` endpoint as a `GET` method. This API serves as your "data presentation layer".
-6. This API endpoint should resemble this example: 
+5. Data inserted into the `songs` table of your database are immediately available in your API's `/songs` endpoint as a `GET` method. This API serves as your "data presentation layer". Here is an example: 
    
     **https://bv1e9klemd.execute-api.us-east-1.amazonaws.com/api/songs**
 
-7. Your song player's frontend (your S3 bucket website address) can then be refreshed to display the new song after ingestion. It should resemble this example:
+6. Your song player's frontend (your S3 bucket website, with the `index.html` added) can then be refreshed to display the new song after ingestion. Here is an example:
 
-    **http://mst3k-dp1-spotify.s3-website-us-east-1.amazonaws.com/**
+    **http://nem2p-dp1-spotify.s3-website-us-east-1.amazonaws.com/**
 
+
+## STEP ONE - Gather Your Music
+
+### Song Files
+
+Songs must consist of three items matching in name, each with a unique suffix. Do not zip, bundle, or put them into separate directories:
+
+An example:
+
+- [`9e4d555f.mp3`](http://nem2p-dp1-spotify.s3-website-us-east-1.amazonaws.com/9e4d555f.mp3) - The MP3 file of the song itself.
+- [`9e4d555f.jpg`](http://nem2p-dp1-spotify.s3-website-us-east-1.amazonaws.com/9e4d555f.jpg) - A JPG file for the song/artist. Do not use `.gif` or `.png` files.
+- [`9e4d555f.json`](http://nem2p-dp1-spotify.s3-website-us-east-1.amazonaws.com/9e4d555f.json) - A data blob containing metadata for the song. See below for an example.
+
+**Song Metadata**
+
+```
+{
+  "title": "Starting Over",
+  "album": "Starting Over",
+  "artist": "Chris Stapleton",
+  "genre": 6,
+  "year": 2020
+}
+```
+Each song package (all 3 files) must contain five data points: `title`, `album`, `artist`, and the integers of the song's `genre` (according to the genres API above) and `year`.
+
+- - -
+
+Your first task is to collect at least ten (10) songs and create their associated metadata files.
+
+1. **MP3 files** - can be created from YouTube videos using tools such as [this](https://ezmp3.cc/).
+2. **Metadata JSON files** - can be written by hand using the schema above.
+3. **Album Cover Art** (optional) - must be a JPG file. The ideal size is 200x200 pixels, with a 72ppi resolution.
+
+Remember that each bundle needs a unique, matching set of file names. To create a unique 8-character name for your song bundle, you might want to use this ID generator API!  **http://ids-sds.pods.uvarc.io/id/8**
+
+Put your song bundles in a separate `songs` directory within your project but do not upload them to S3 yet.
+
+> NOTE: Copyright laws prohibit the redistribution or sale of creative material, but our purposes here are academic and temporary. You should not distribute your application URL.
 
 ## STEP TWO - Deploy your CloudFormation stack
 
@@ -132,7 +141,7 @@ Notes about this template:
 
 ## STEP THREE - Set Up Your Database
 
-Using either the mysql command-line (built into your EC2 instance) or the PhpMyAdmin console, connect to the RDS instance using the credentials [here]().
+Using either the mysql command-line (built into your EC2 instance) or the PhpMyAdmin console, connect to the RDS instance using the credentials given to you in the assignment page.
 
 ### Command-Line in EC2
 
@@ -146,7 +155,7 @@ Or use a simple web interface by running this command in Docker. It will then be
 
     docker run -d -e PMA_ARBITRARY=1 -p 8080:80 phpmyadmin
 
-Then supply the server, username, and password from the page in Canvas.
+Then supply the server, username, and password from the assignment in Canvas.
 
 ### Create a new database
 
@@ -301,7 +310,7 @@ A few notes about the block above:
 
 ### 4. Create the `/songs` endpoint in your API
 
-Based on the code above, create another endpoint and function for the `/songs` endpoint. This should return values like [this page](https://bv1e9klemd.execute-api.us-east-1.amazonaws.com/api/songs)
+Based on the code above, create another endpoint and function for the `/songs` endpoint. This should return values like [**this**](https://bv1e9klemd.execute-api.us-east-1.amazonaws.com/api/songs).
 
 The following seven (7) fields must be returned, which requires a JOIN query:
 
@@ -311,9 +320,11 @@ The following seven (7) fields must be returned, which requires a JOIN query:
 - Song year - `year`
 - Song file (MP3) - the full S3 URL to the MP3 file
 - Song image (JPG) - the full S3 URL to the image
-- Song genre - `genre` (from the `genres` table). This returns a string, not an integer.
+- Song genre - `genre` (from the `genres` table). This value is derived by a JOIN between the `songs.genre` value (INT) and the `genres.genreid` value (INT). The result returns a string, not an integer.
 
-Test your API locally to be sure you are getting well-formed results for both the `/genres` and `/songs` endpoints. Since you seeded your songs table with a song, you should see one entry.
+Test your API locally to be sure you are getting well-formed results for both the `/genres` and `/songs` endpoints. Since you seeded your songs table with a song, you should see one entry as you test.
+
+Try modifying values within the existing record, to see if they are reflected in your API.
 
 Once you are happy with your results, add, commit, and push your code to GitHub. Your FastAPI container should build successfully based on your work in Lab 6.
 
@@ -329,7 +340,7 @@ Issue that command from within your EC2 instance to pull the image locally.
 
 Finally, using the full container image name, run the container in detached mode, mapped to port 80 of the instance. 
 
-Be sure to pass in the `DBPASS` value as an environment variable, since that is the last piece your application needs in order to connect to the database.
+**Be sure to pass in the `DBPASS` value as an environment variable**, since that is the last piece your application needs in order to connect to the database.
 
     docker run -d -p 80:80 \
       -e DBPASS="xxxxxx" \
@@ -386,15 +397,16 @@ Be sure to install the Chalice framework in your local environment using one of 
 
     pip install chalice
     pip3 install chalice
+    python3 -m pip install chalice
     pipenv shell && pipenv install chalice
 
 Next, create a new Chalice application. Within the root directory of your project, issue this command:
 
     chalice new-project 
 
-For the project name, call it `ingestor`. For the project type, you can use your up/down arrow keys to select the "S3 Event Handler" then hit return.
+For the project name, call it `ingestor` or `pacman` (a process that eats up new things that arrive). For the project type, you can use your up/down arrow keys to select the "S3 Event Handler" then hit return.
 
-Change directories into `ingestor/`.
+Change directories into the new Chalice project directory.
 
 We cannot commit sensitive information (i.e. database connection passwords, etc.) to Git, so let's add to the `.gitignore` file:
 
@@ -409,7 +421,7 @@ Next, edit the `.chalice/config.json` file that Chalice created automatically. I
     "DB":"xxxxx"
   },
 ```
-Update the `DBPASS` and `DB` values accordingly to the password in Canvas and the name of YOUR database.
+Update the `DBPASS` and `DB` values accordingly to the password in Canvas and the name of YOUR database. These variables will be deployed to AWS when you publish your function, but will not be committed to GitHub.
 
 Finally, in both `requirements` files, add:
 
@@ -454,12 +466,12 @@ _SUPPORTED_EXTENSIONS = (
 @app.on_s3_event(bucket=S3_BUCKET, events=['s3:ObjectCreated:*'])
 def s3_handler(event):
   if _is_json(event.key):
-    # get the file, read it, load it into JSON
+    # get the file, read it, load it into JSON as an object
     response = s3.get_object(Bucket=S3_BUCKET, Key=event.key)
     text = response["Body"].read().decode()
     data = json.loads(text)
 
-    # parse the data fields 1-by-1 from data
+    # parse the data fields 1-by-1 from 'data'
     TITLE = 
     ALBUM = 
     ARTIST = 
@@ -467,6 +479,10 @@ def s3_handler(event):
     GENRE = 
 
     # get the unique ID for the bundle to build the mp3 and jpg urls
+    # you get 5 data points in each new JSON file that arrives, but
+    # you need 7 fields for the INSERT. The two additional values are
+    # URLs you must formulate given you know the unique ID these files
+    # are named.
     keyhead = event.key
     identifier = keyhead.split('.')
     ID = identifier[0]
@@ -488,12 +504,11 @@ def s3_handler(event):
       app.log.error("Failed to insert song: %s", err)
       db.rollback()
 
-# perform suffix match against supported extensions
+# perform a suffix match against supported extensions
 def _is_json(key):
   return key.endswith(_SUPPORTED_EXTENSIONS)
 
 ```
-
 1. Be sure to update the name of your S3 bucket.
 2. Update the `baseurl` of your S3 website address.
 3. Parse the song metadata extracted into `data`.
@@ -504,9 +519,9 @@ Once you have addressed any errors or malformed code blocks, you are ready to de
 
     chalice deploy
 
-You can then view your function's details in the [AWS Console](https://us-east-1.console.aws.amazon.com/lambda/home?region=us-east-1#/functions).
+You can then view your function's details in the [AWS Lambda Service Page](https://us-east-1.console.aws.amazon.com/lambda/home?region=us-east-1#/functions).
 
-> NOTE: Be sure NOT to edit your function or any options within the AWS Console. Those changes will be overwritten the next time you run `chalice deploy`.
+> NOTE: Be sure NOT to edit your function or any options within the AWS Lambda Service Page. Those changes will be overwritten the next time you run `chalice deploy`.
 
 To view the logs for your Lambda function, open the function from the list and click into the **MONITOR** tab below the Overview. Find the "View Cloudwatch Logs" button and open it. This will give you a view into logs.
 
@@ -527,7 +542,7 @@ The instructional staff needs three pieces of information in order to grade your
 **DO NOT** stop your EC2 instance until instructed to. It needs to be running for your project to be graded!
 
 ### Grading
-This project is worth 15 points total. Here is a breakdown of the grading rubric:
+This project is worth 15 points. Here is a breakdown of the grading rubric:
 
 - Student has (at least) 10 songs loaded into their music player (2 points)
 - Student properly sets up a database, loads schemas and data (2 points)
