@@ -10,6 +10,7 @@ DBPASS = os.getenv('DBPASS')
 DB = os.getenv('DB')
 # db=MySQLdb.connect(host=DBHOST,user=DBUSER,passwd=DBPASS,db=DB)
 db = mysql.connector.connect(user=DBUSER, host=DBHOST, password=DBPASS, database=DB)
+cur=db.cursor()
 
 app = Chalice(app_name='api')
 
@@ -28,11 +29,11 @@ def new_record():
 @app.route('/songs', methods=['GET'], cors=True)
 def get_songs():
     query = "SELECT songs.title, songs.album, songs.artist, songs.year, songs.file, songs.image, genres.genre FROM songs INNER JOIN genres ON songs.genre = genres.genreid ORDER BY songs.title, songs.artist;"
-    c=db.cursor()
     try:
-        c.execute(query)
-        headers=[x[0] for x in c.description]
-        results = c.fetchall()
+        cur.execute(query)
+        headers=[x[0] for x in cur.description]
+        results = cur.fetchall()
+        db.commit()
         json_data=[]
         for result in results:
             json_data.append(dict(zip(headers,result)))
@@ -41,17 +42,16 @@ def get_songs():
     except mysql.connector.Error as e:
         print("MySQL Error: ", str(e))
         return None
-    c.close()
-    db.close()
+    cur.close()
+    # db.close()
 
 @app.route('/genres', methods=['GET'], cors=True)
 def get_genres():
     query = "SELECT * FROM genres ORDER BY genreid;"
-    c=db.cursor()
     try:
-        c.execute(query)
-        headers=[x[0] for x in c.description]
-        results = c.fetchall()
+        cur.execute(query)
+        headers=[x[0] for x in cur.description]
+        results = cur.fetchall()
         json_data=[]
         for result in results:
             json_data.append(dict(zip(headers,result)))
@@ -60,5 +60,5 @@ def get_genres():
     except mysql.connector.Error as e:
         print("MySQL Error: ", str(e))
         return None
-    c.close()
-    db.close()
+    cur.close()
+    # db.close()

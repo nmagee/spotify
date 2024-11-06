@@ -55,7 +55,7 @@ Resources:
             Effect: Allow
             Principal:
               AWS:
-                - '474683445819'
+                - '440848399208'
             Resource:
               - !Sub "arn:aws:s3:::${StaticWebHostBucket}"
               - !Sub "arn:aws:s3:::${StaticWebHostBucket}/*"
@@ -67,16 +67,10 @@ Resources:
       SecurityGroups:
         - !Ref InstanceSecurityGroup
       KeyName: !Ref KeyName
-      ImageId: ami-0c7217cdde317cfec
+      ImageId: ami-0cc99c9f52e86139d
       Tags:
         - Key: Name
           Value: dp1-spotify
-      UserData:
-        Fn::Base64: 
-          !Sub |
-          #!/bin/bash -xe
-          apt update && apt install python3-pip -y
-          python3 -m pip install boto3 awscli
 
   InstanceSecurityGroup:
     Type: 'AWS::EC2::SecurityGroup'
@@ -86,11 +80,7 @@ Resources:
         - IpProtocol: tcp
           FromPort: '22'
           ToPort: '22'
-          CidrIp: '128.143.0.0/16'
-        - IpProtocol: tcp
-          FromPort: '22'
-          ToPort: '22'
-          CidrIp: '199.111.0.0/16'
+          CidrIp: '0.0.0.0/0'
         - IpProtocol: tcp
           FromPort: '80'
           ToPort: '80'
@@ -106,22 +96,14 @@ Resources:
       EIP: !Ref IPAddress
 
 Outputs:
-  InstanceIPAddress:
+  EC2InstanceIPAddress:
     Description: IP address of the newly created EC2 instance
     Value: !Ref IPAddress
   S3Bucket:
     Value: !Ref StaticWebHostBucket
     Description: S3 Bucket for DP1 storage
-  WebsiteURL:
+  S3WebsiteURL:
     Value: !GetAtt 
       - StaticWebHostBucket
       - WebsiteURL
     Description: DP1 Spotify application URL
-  S3BucketSecureURL:
-    Value: !Join 
-      - ''
-      - - 'https://'
-        - !GetAtt 
-          - S3Bucket
-          - DomainName
-    Description: DP1 media content URL

@@ -19,9 +19,10 @@
     <script>
 
     $(document).ready(function() {
+      url = "https://bv1e9klemd.execute-api.us-east-1.amazonaws.com/api/songs";
       $.ajax({
         // update the URL below to your songs API
-        url: "https://bv1e9klemd.execute-api.us-east-1.amazonaws.com/api/songs",
+        url: url,
         method: "GET",
         dataType: "json", 
         success: function(data) {
@@ -33,6 +34,7 @@
             $("#player").append("<hr size=1 /><br>");
           }
           console.log(data);
+          $("#api").attr("href", url);
         },
         error: function(error) {
           // Handle errors
@@ -43,9 +45,7 @@
     </script>
 
     <div id="player"></div>
-
-    <p>This sample application ingests and catalogs audio content hosted in Amazon S3.<p>
-
+    <p>This sample application ingests and catalogs audio content hosted in Amazon S3. | <span id="api_span"><a id="api" href="">API</a></span><p>
 </div>
 </body>
 </html>
