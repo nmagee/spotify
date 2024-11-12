@@ -8,6 +8,7 @@ from chalice import Chalice
 app = Chalice(app_name='grader')
 s3 = boto3.client('s3')
 ddb = boto3.client('dynamodb')
+cwl = boto3.client('logs')
 
 @app.route('/')
 def index():
@@ -19,7 +20,7 @@ def grade_submission():
   # We'll echo the json body back to the user in a 'user' key.
   # print(payload)
   bucket = payload['bucket']
-  os.chdir('chalicelib')
+  # os.chdir('vendor')
   files = ["8cijpjpy.json", "8cijpjpy.jpg", "8cijpjpy.mp3"]
   for file in files:
     upload(bucket, file)
@@ -45,12 +46,15 @@ def check_api(api, bucket):
   response = requests.get(api)
   rbody = response.text
   # print(rbody)
+  uid = bucket.rstrip("-dp1-spotify")
   if "8cijpjpy" in response.text:
-    put_ddb(bucket, api, "SUCCESS")
+    write_log(bucket, api, uid, "SUCCESS")
+    put_ddb(bucket, api, uid, "SUCCESS")
   else:
-    put_ddb(bucket, api, "FAILURE")
+    write_log(bucket, api, uid, "FAILURE")
+    put_ddb(bucket, api, uid, "FAILURE")
 
-def put_ddb(bucket, api, status):
+def put_ddb(bucket, api, uid, status):
   try:
     response = ddb.put_item(
         Item={
@@ -60,6 +64,9 @@ def put_ddb(bucket, api, status):
             'api': {
                 'S': api,
             },
+            'uid': {
+                'S': uid,
+            },
             'status': {
                 'S': status,
             },
@@ -68,3 +75,18 @@ def put_ddb(bucket, api, status):
     )
   except Exception as e:
     print(f"Error with put in DynamoDB: {e}")
+
+def write_log(bucket, api, uid, status):
+  try:
+    response = cwl.put_log_events(
+        logGroupName='dp1-spotify-lg',
+        logStreamName='submissions',
+        logEvents=[
+            {
+                'timestamp': int(round(time.time() * 1000)),
+                'message': uid + " - " + status + " - " + bucket + " - " + api,
+            },
+        ],
+    )
+  except Exception as e:
+    print(f"Error with put in CloudWatch Logs: {e}")

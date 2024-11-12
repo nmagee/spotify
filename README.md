@@ -366,7 +366,7 @@ Go to your `/songs` endpoint to see if you have good results.
 
 ## STEP SIX - Set up and test your Web UI
 
-Find the file [`index.html`](frontend/index.html) in this repository and modify line 22 with a new URL. This URL should consist of your EC2 instance's IP address (from above), plus the `/songs` endpoint, as an HTTP web address. It should look something like this:
+Find the file [`index.html`](frontend/index.html) in this repository and modify line 23 with a new URL. This URL should consist of your EC2 instance's IP address (from above), plus the `/songs` endpoint, as an HTTP web address. It should look something like this:
 
     http://12.34.56.78/songs
 

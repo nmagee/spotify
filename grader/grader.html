@@ -27,7 +27,7 @@
       <div class="mb-3">
         <label for="api" class="form-label">Songs API Endpoint</label>
         <input type="text" class="form-control" name="api" id="api" aria-describedby="apiHelp">
-        <div id="apiHelp" class="form-text">The name of your data project bucket.</div>
+        <div id="apiHelp" class="form-text">The full address to your API's <code>/songs</code> endpoint .</div>
       </div>
       <button type="submit" class="btn btn-primary">Submit</button>
     </form>
@@ -54,14 +54,8 @@ form.onsubmit = function(event){
             }
         }
         //Fail the onsubmit to avoid page refresh.
-
-        // sleep for 3 seconds
-        setTimeout(function(){
-            alert("Your submission has been received. Please check your email for the results.");
-        }, 3000);
-        // redirect to another page
-        window.location.href = "https://github.com/uvasds-systems/DS2002/";
-        // return false; 
+        window.location.href = "index.html"; // Redirect to another page 
+        return false; 
     }
 
 </script>
