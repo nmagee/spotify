@@ -1,26 +1,28 @@
 import json
 import os
-import mysql.connector
+# import mysql.connector
 import datetime
+import boto3
 from chalice import Chalice
 
-DBHOST = os.getenv('DBHOST')
-DBUSER = os.getenv('DBUSER')
-DBPASS = os.getenv('DBPASS')
-DB = os.getenv('DB')
-# db=MySQLdb.connect(host=DBHOST,user=DBUSER,passwd=DBPASS,db=DB)
-db = mysql.connector.connect(user=DBUSER, host=DBHOST, password=DBPASS, database=DB)
-cur=db.cursor()
+# DBHOST = os.getenv('DBHOST')
+# DBUSER = os.getenv('DBUSER')
+# DBPASS = os.getenv('DBPASS')
+# DB = os.getenv('DB')
+# # db=MySQLdb.connect(host=DBHOST,user=DBUSER,passwd=DBPASS,db=DB)
+# db = mysql.connector.connect(user=DBUSER, host=DBHOST, password=DBPASS, database=DB)
+# cur=db.cursor()
 
 app = Chalice(app_name='api')
+ddb = boto3.resource('dynamodb')
+table = ddb.Table('songs')
 
 @app.route('/')
 def index():
     return {'hello': 'spotify'}
 
-@app.route('/record', methods=['POST'], cors=True)
+@app.route('/song', methods=['POST'], cors=True)
 def new_record():
-    print("RECORD POST")
     print(app.current_request.json_body)
     # payload = app.current_request.json_body
     # print(payload)
@@ -28,37 +30,23 @@ def new_record():
 
 @app.route('/songs', methods=['GET'], cors=True)
 def get_songs():
-    query = "SELECT songs.title, songs.album, songs.artist, songs.year, songs.file, songs.image, genres.genre FROM songs INNER JOIN genres ON songs.genre = genres.genreid ORDER BY songs.title, songs.artist;"
     try:
-        cur.execute(query)
-        headers=[x[0] for x in cur.description]
-        results = cur.fetchall()
-        db.commit()
-        json_data=[]
-        for result in results:
-            json_data.append(dict(zip(headers,result)))
-        output = json.dumps(json_data)
-        return(output)
-    except mysql.connector.Error as e:
-        print("MySQL Error: ", str(e))
-        return None
-    cur.close()
-    db.close()
+        response = table.scan()
+        items = response.get('Items', [])
+        
+        # Handle pagination if there are more items
+        while 'LastEvaluatedKey' in response:
+            response = table.scan(ExclusiveStartKey=response['LastEvaluatedKey'])
+            items.extend(response.get('Items', []))
+        
+        # Convert year from Decimal to integer and sort items by title
+        for item in items:
+            if 'year' in item:
+                item['year'] = int(item['year'])
+        
+        sorted_items = sorted(items, key=lambda x: x.get('title', '').lower())
+            
+        return sorted_items
+    except Exception as e:
+        return {'error': str(e)}, 500
 
-@app.route('/genres', methods=['GET'], cors=True)
-def get_genres():
-    query = "SELECT * FROM genres ORDER BY genreid;"
-    try:
-        cur.execute(query)
-        headers=[x[0] for x in cur.description]
-        results = cur.fetchall()
-        json_data=[]
-        for result in results:
-            json_data.append(dict(zip(headers,result)))
-        output = json.dumps(json_data)
-        return(output)
-    except mysql.connector.Error as e:
-        print("MySQL Error: ", str(e))
-        return None
-    cur.close()
-    db.close()

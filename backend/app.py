@@ -10,17 +10,11 @@ app.debug = True
 # s3 things
 S3_BUCKET = 'nem2p-dp1-spotify'
 s3 = boto3.client('s3')
+ddb = boto3.resource('dynamodb')
+table = ddb.Table('songs')
 
 # base URL for accessing the files
 baseurl = 'http://nem2p-dp1-spotify.s3-website-us-east-1.amazonaws.com/'
-
-# database things
-DBHOST = os.getenv('DBHOST')
-DBUSER = os.getenv('DBUSER')
-DBPASS = os.getenv('DBPASS')
-DB = os.getenv('DB')
-db = mysql.connector.connect(user=DBUSER, host=DBHOST, password=DBPASS, database=DB)
-cur = db.cursor()
 
 # file extensions to trigger on
 _SUPPORTED_EXTENSIONS = (
@@ -54,19 +48,30 @@ def s3_handler(event):
 
     # try to insert the song into the database
     try:
-      add_song = ("INSERT INTO songs "
-               "(title, album, artist, year, file, image, genre) "
-               "VALUES (%s, %s, %s, %s, %s, %s, %s)")
-      song_vals = (TITLE, ALBUM, ARTIST, YEAR, MP3, IMG, GENRE)
-      cur.execute(add_song, song_vals)
-      db.commit()
-
-    except mysql.connector.Error as err:
-      app.log.error("Failed to insert song: %s", err)
-      db.rollback()
+        response = table.put_item(
+            Item={
+                'id': ID,
+                'title': TITLE,
+                'album': ALBUM,
+                'artist': ARTIST,
+                'year': YEAR,
+                'genre': GENRE,
+                'file': MP3,
+                'image': IMG
+            }
+        )
+        return {
+            'statusCode': 200,
+            'body': f'Successfully inserted song {TITLE} into DynamoDB'
+        }
+    except Exception as e:
+        print(e)
+        app.log.error(f"Error inserting into DynamoDB: {str(e)}")
+        return {
+            'statusCode': 500,
+            'body': f'Error inserting into DynamoDB: {str(e)}'
+        }
 
 # performs suffix matching against the tuple of supported extensions
 def _is_json(key):
   return key.endswith(_SUPPORTED_EXTENSIONS)
-
-
