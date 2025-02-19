@@ -19,31 +19,58 @@
   <h2 style="color:#1CD760;margin-bottom:2rem;">DIY Spotify</h2>
     <script>
 
-    $(document).ready(function() {
+$(document).ready(function() {
       // url = "http://nem2p-dp1-api.pods.uvarc.io/songs"
-      url = "https://bv1e9klemd.execute-api.us-east-1.amazonaws.com/api/songs";
+      const url = "https://bv1e9klemd.execute-api.us-east-1.amazonaws.com/api/songs";
+      const CACHE_KEY = 'spotifyCache';
+      const CACHE_DURATION = 1 * 60 * 60 * 1000; // 1 hour in milliseconds
+
+      // Check if we have valid cached data
+      const cachedData = localStorage.getItem(CACHE_KEY);
+      if (cachedData) {
+        const { timestamp, data } = JSON.parse(cachedData);
+        if (Date.now() - timestamp < CACHE_DURATION) {
+          // Use cached data if it's less than 1 hour old
+          renderSongs(data);
+          $("#api").attr("href", url);
+          return;
+        }
+      }
+
+      // If no valid cache, fetch from API
       $.ajax({
-        // update the URL below to your songs API
         url: url,
         method: "GET",
         dataType: "json", 
         success: function(data) {
-          for (var i = 0; i < data.length; i++) {
-            $("#player").append("<img src='" + data[i].image + "' width='100' height='100' style='float:left;margin:10px;' />");
-            $("#player").append("<h3>" + data[i].title + "</h3>");
-            $("#player").append("<p>" + data[i].artist + " | <i>" + data[i].album + "</i> | " + data[i].year + " | " + data[i].genre + "</p>");
-            $("#player").append("<audio controls><source src='" + data[i].file + "' type='audio/mpeg'></audio>");
-            $("#player").append("<hr size=1 /><br>");
-          }
-          console.log(data);
+          // Cache the new data with timestamp
+          const cacheObject = {
+            timestamp: Date.now(),
+            data: data
+          };
+          localStorage.setItem(CACHE_KEY, JSON.stringify(cacheObject));
+          
+          renderSongs(data);
           $("#api").attr("href", url);
         },
         error: function(error) {
-          // Handle errors
           console.error("Error fetching data:", error);
         }
       });
     });
+
+    // Helper function to render songs
+    function renderSongs(data) {
+      for (var i = 0; i < data.length; i++) {
+        $("#player").append("<img src='" + data[i].image + "' width='100' height='100' style='float:left;margin:10px;' />");
+        $("#player").append("<h3>" + data[i].title + "</h3>");
+        $("#player").append("<p>" + data[i].artist + " | <i>" + data[i].album + "</i> | " + data[i].year + " | " + data[i].genre + "</p>");
+        $("#player").append("<audio controls><source src='" + data[i].file + "' type='audio/mpeg'></audio>");
+        $("#player").append("<hr size=1 /><br>");
+      }
+      console.log(data);
+    }
+
     </script>
 
     <div id="player"></div>
